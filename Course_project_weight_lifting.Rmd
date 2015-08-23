@@ -45,6 +45,7 @@ dim(pml_test)
 ```
 
 **Data cleaning**
+
 Partitioning is performed to obtain a 75% training set and a 25% test set from the training set
 
 ```{r}
