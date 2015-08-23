@@ -1,0 +1,110 @@
+###Prediction of Performed Exercise
+##### Hanneke - 22-08-2015
+
+**preface**
+
+This analysis makes use of measurements from devices as Jawbone Up, Nike FuelBand and Fitbit. We will predict the class of exercise people were performing.
+
+Therefore we make use of measurements of six young participants who were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: 
+
+- Class A: exactly according to the specification
+- Class B: throwing the elbows to the front
+- Class C: lifting the dumbbell only halfway
+- Class D: lowering the dumbbell only halfway  
+- Class E: throwing the hips to the front 
+
+**Preparation: used libraries**
+```{r}
+library(caret)
+```
+
+**Preparation: loading and cleaning data**
+
+The data for this project come was obteined from http://groupware.les.inf.puc-rio.br/har. Two data sets were available, a training set and a test set for which 20 individuals without any classification for the class of exercise was available.
+
+All variables with at least one “NA” are excluded from the analysis. Variables related to time and user information are excluded. Same variables are maintained in the test data set.
+
+```{r}
+#Data loading
+setwd("/Users/hanneke/Documents/knowledge/training_data_scientist/machine_learning")
+pml_train<-read.csv("pml-training.csv", header=T, na.strings=c("NA", "#DIV/0!"))
+pml_test<-read.csv("pml-testing.csv", header=T, na.string=c("NA", "#DIV/0!"))
+
+## NA exclusion for all available variables
+pml_train<-pml_train[, apply(pml_train, 2, function(x) !any(is.na(x)))] 
+dim(pml_train)
+
+## delete variables with user information and time
+pml_train<-pml_train[,-c(1:8)]
+dim(pml_train)
+
+## 20 test cases provided clean info - Validation data set
+pml_test<-pml_test[,names(pml_train[,-52])]
+dim(pml_test)
+# one column less, the output
+```
+
+**Data cleaning**
+Partitioning is performed to obtain a 75% training set and a 25% test set from the training set
+
+```{r}
+# make train and test set
+inTrain<-createDataPartition(y=pml_train$classe, p=0.75,list=F)
+training_set<-pml_train[inTrain,] 
+test_set<-pml_train[-inTrain,]
+#Training and test set dimensions
+dim(training_set)
+dim(test_set)
+```
+
+**Data exploration**
+
+```{r}
+# Make a feature plot of some variables
+featurePlot(x = training_set[, 3:6],y=training_set$classe,plot="pairs",alpha=.1, auto.key = list(columns = 5))
+```
+
+**Model and model results**
+
+cross-validation at a 5-fold and Random forest trees is used for the training dataset and test set. For the training set it works perfect. For the test set an accuracy of 99.2% is reached with a 95% CI (0.9987, 0.994) by a Kappa value of 0.99.
+
+```{r}
+# Build the model
+set.seed(13333)
+fit_control<-trainControl(method="cv", number=5, allowParallel=T, verbose=T)
+rffit<-train(classe~.,data=training_set, method="rf", trControl=fit_control, verbose=F)
+
+#test it on the training set
+predrf_train<-predict(rffit, newdata=training_set)
+confusionMatrix(predrf_train, training_set$classe)
+
+# test it on generated test set
+predrf_test<-predict(rffit, newdata=test_set)
+confusionMatrix(predrf_test, test_set$classe)
+```
+
+**Predict 20 test-cases**
+
+```{r}
+pred20<-predict(rffit, newdata=pml_test)
+# Output for the prediction of the 20 cases provided
+pred20
+```
+
+The function below is used to obtain single text files to test the outcome. 20 out of 20 hits also confirmed the accuracy of the obtained models.
+
+```{r}
+pml_write_files = function(x){
+  n = length(x)
+  for(i in 1:n){
+    filename = paste0("problem_id_",i,".txt")
+    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+  }
+}
+
+pml_write_files(pred20)
+```
+
+**Conclusion**
+
+The random forest model can do a good estimation with exercise is done with the measurements of the bracelets.    
